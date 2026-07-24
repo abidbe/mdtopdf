@@ -45,5 +45,9 @@ test("paginates preview with the same physical pages used for printing", async (
   assert.match(css, /height: var\(--paper-height, 297mm\)/);
   assert.match(css, /font-size: var\(--print-font-size, 11pt\)/);
   assert.match(css, /padding: var\(--paper-margin\) !important/);
-  assert.match(css, /break-after: page/);
+  assert.match(css, /\.app-shell > :not\(\.workspace\)/);
+  assert.match(css, /position: static !important/);
+  assert.match(css, /\.page-frame:not\(:last-child\)/);
+  assert.match(css, /page-break-after: always/);
+  assert.match(css, /\.page-frame:last-child[\s\S]*?page-break-after: auto/);
 });

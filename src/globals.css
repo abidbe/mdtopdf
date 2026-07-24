@@ -888,26 +888,39 @@ textarea:focus-visible,
 
 @media print {
   html,
-  body {
+  body,
+  #root,
+  .app-shell {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
     background: transparent !important;
   }
 
-  body * {
-    visibility: hidden !important;
+  .app-shell > :not(.workspace),
+  .workspace > .panel:not(.print-surface) {
+    display: none !important;
   }
 
-  .print-surface,
-  .print-surface * {
-    visibility: visible !important;
+  .workspace {
+    display: block !important;
+    width: auto !important;
+    min-height: 0 !important;
+    background: transparent !important;
   }
 
   .print-surface {
-    position: absolute !important;
-    inset: 0 !important;
+    position: static !important;
+    inset: auto !important;
     display: block !important;
-    width: 100% !important;
+    width: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: transparent !important;
   }
 
   .print-surface > .panel-header {
@@ -926,13 +939,21 @@ textarea:focus-visible,
   }
 
   .page-frame {
+    display: block !important;
     width: auto !important;
     height: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .page-frame:not(:last-child) {
     break-after: page;
+    page-break-after: always;
   }
 
   .page-frame:last-child {
     break-after: auto;
+    page-break-after: auto;
   }
 
   .page-number,
