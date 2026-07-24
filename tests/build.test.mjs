@@ -45,6 +45,8 @@ test("paginates preview with the same physical pages used for printing", async (
   assert.match(css, /height: var\(--paper-height, 297mm\)/);
   assert.match(css, /font-size: var\(--print-font-size, 11pt\)/);
   assert.match(css, /padding: var\(--paper-margin\) !important/);
+  assert.match(css, /\.document-page h2 \{[\s\S]*?margin: 0\.75em 0 0\.4em/);
+  assert.match(css, /\.document-page h1:empty[\s\S]*?display: none/);
   assert.match(css, /\.app-shell > :not\(\.workspace\)/);
   assert.match(css, /position: static !important/);
   assert.match(css, /\.page-frame:not\(:last-child\)/);
