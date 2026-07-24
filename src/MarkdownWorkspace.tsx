@@ -13,7 +13,8 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { ChangeEvent, CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, CSSProperties, UIEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -106,48 +107,74 @@ function sanitizeBaseName(fileName: string | null) {
   return cleaned || "document";
 }
 
+function readInitialDocument(): {
+  source: string;
+  fileName: string | null;
+  settings: Settings;
+  notice: Notice | null;
+} {
+  if (typeof window === "undefined") {
+    return {
+      source: DEFAULT_MARKDOWN,
+      fileName: null,
+      settings: DEFAULT_SETTINGS,
+      notice: null,
+    };
+  }
+
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (!saved) {
+      return {
+        source: DEFAULT_MARKDOWN,
+        fileName: null,
+        settings: DEFAULT_SETTINGS,
+        notice: null,
+      };
+    }
+
+    const parsed = JSON.parse(saved) as {
+      source?: string;
+      fileName?: string | null;
+      settings?: Partial<Settings>;
+    };
+
+    return {
+      source: typeof parsed.source === "string" ? parsed.source : DEFAULT_MARKDOWN,
+      fileName:
+        typeof parsed.fileName === "string" || parsed.fileName === null
+          ? parsed.fileName
+          : null,
+      settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
+      notice: null,
+    };
+  } catch {
+    return {
+      source: DEFAULT_MARKDOWN,
+      fileName: null,
+      settings: DEFAULT_SETTINGS,
+      notice: {
+        type: "error",
+        message: "Draft lokal tidak dapat dipulihkan. Editor tetap dapat digunakan.",
+      },
+    };
+  }
+}
+
 export default function MarkdownWorkspace() {
-  const [source, setSource] = useState(DEFAULT_MARKDOWN);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [initialDocument] = useState(readInitialDocument);
+  const [source, setSource] = useState(initialDocument.source);
+  const [fileName, setFileName] = useState<string | null>(initialDocument.fileName);
+  const [settings, setSettings] = useState<Settings>(initialDocument.settings);
   const [isDirty, setIsDirty] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("editor");
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(initialDocument.notice);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as {
-          source?: string;
-          fileName?: string | null;
-          settings?: Partial<Settings>;
-        };
-        if (typeof parsed.source === "string") setSource(parsed.source);
-        if (typeof parsed.fileName === "string" || parsed.fileName === null) {
-          setFileName(parsed.fileName);
-        }
-        if (parsed.settings) {
-          setSettings((current) => ({ ...current, ...parsed.settings }));
-        }
-      }
-    } catch {
-      setNotice({
-        type: "error",
-        message: "Draft lokal tidak dapat dipulihkan. Editor tetap dapat digunakan.",
-      });
-    } finally {
-      setIsHydrated(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isHydrated) return;
     const saveTimer = window.setTimeout(() => {
       try {
         window.localStorage.setItem(
@@ -164,7 +191,7 @@ export default function MarkdownWorkspace() {
     }, 700);
 
     return () => window.clearTimeout(saveTimer);
-  }, [fileName, isHydrated, settings, source]);
+  }, [fileName, settings, source]);
 
   useEffect(() => {
     if (!notice) return;
@@ -266,7 +293,7 @@ export default function MarkdownWorkspace() {
     }
   };
 
-  const handleEditorScroll = (event: ChangeEvent<HTMLTextAreaElement>) => {
+  const handleEditorScroll = (event: UIEvent<HTMLTextAreaElement>) => {
     if (lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = event.currentTarget.scrollTop;
     }
