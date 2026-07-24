@@ -324,8 +324,8 @@ textarea:focus-visible,
   border-radius: 3px;
   box-shadow: var(--shadow-2);
   font-family: var(--font-ui);
-  font-size: 15px;
-  line-height: 1.68;
+  font-size: var(--document-font-size, 15px);
+  line-height: var(--document-line-height, 1.68);
   overflow-wrap: anywhere;
 }
 
@@ -384,6 +384,12 @@ textarea:focus-visible,
 .document-page pre,
 .document-page table {
   margin: 0 0 18px;
+}
+
+.document-page p,
+.document-page li {
+  orphans: 3;
+  widows: 3;
 }
 
 .document-page ul,
@@ -633,6 +639,10 @@ textarea:focus-visible,
   background: var(--canvas-soft);
 }
 
+.segmented-control.three-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .segment {
   min-height: 38px;
   border: 0;
@@ -648,6 +658,24 @@ textarea:focus-visible,
   color: var(--primary-deep);
   background: var(--canvas);
   box-shadow: var(--shadow-1);
+}
+
+.text-size-option {
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  padding: 7px 4px;
+  line-height: 1.15;
+}
+
+.text-size-option small {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-size-option[aria-pressed="true"] small {
+  color: var(--primary-deep);
 }
 
 .settings-footer {
@@ -866,10 +894,11 @@ textarea:focus-visible,
   .document-page {
     width: 100% !important;
     min-height: 0 !important;
-    padding: var(--print-margin, 18mm) !important;
+    padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    font-size: var(--print-font-size, 11pt) !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

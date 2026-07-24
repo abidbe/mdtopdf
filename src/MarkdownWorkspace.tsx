@@ -21,6 +21,7 @@ import remarkGfm from "remark-gfm";
 type PaperSize = "A4" | "A5" | "Letter" | "Legal";
 type Orientation = "portrait" | "landscape";
 type MarginSize = "small" | "normal" | "large";
+type TextSize = "small" | "medium" | "large";
 type DocumentTheme = "light" | "dark";
 type MobileTab = "editor" | "preview";
 
@@ -28,6 +29,7 @@ type Settings = {
   paperSize: PaperSize;
   orientation: Orientation;
   margin: MarginSize;
+  textSize: TextSize;
   theme: DocumentTheme;
 };
 
@@ -70,6 +72,7 @@ const DEFAULT_SETTINGS: Settings = {
   paperSize: "A4",
   orientation: "portrait",
   margin: "normal",
+  textSize: "medium",
   theme: "light",
 };
 
@@ -94,6 +97,15 @@ const MARGIN_VALUES: Record<MarginSize, { preview: string; print: string }> = {
   small: { preview: "42px", print: "12mm" },
   normal: { preview: "64px", print: "18mm" },
   large: { preview: "86px", print: "25mm" },
+};
+
+const TEXT_SIZE_VALUES: Record<
+  TextSize,
+  { label: string; preview: string; print: string; lineHeight: number }
+> = {
+  small: { label: "13 px", preview: "13px", print: "10pt", lineHeight: 1.6 },
+  medium: { label: "15 px", preview: "15px", print: "11pt", lineHeight: 1.68 },
+  large: { label: "17 px", preview: "17px", print: "13pt", lineHeight: 1.72 },
 };
 
 function sanitizeBaseName(fileName: string | null) {
@@ -221,8 +233,10 @@ export default function MarkdownWorkspace() {
     const ratio = PAPER_RATIOS[settings.paperSize][settings.orientation];
     return {
       "--paper-margin": MARGIN_VALUES[settings.margin].preview,
-      "--print-margin": MARGIN_VALUES[settings.margin].print,
       "--paper-min-height": `${Math.round(720 * ratio)}px`,
+      "--document-font-size": TEXT_SIZE_VALUES[settings.textSize].preview,
+      "--print-font-size": TEXT_SIZE_VALUES[settings.textSize].print,
+      "--document-line-height": TEXT_SIZE_VALUES[settings.textSize].lineHeight,
     } as CSSProperties;
   }, [settings]);
 
@@ -316,7 +330,7 @@ export default function MarkdownWorkspace() {
     document.getElementById("md-print-config")?.remove();
     const printStyle = document.createElement("style");
     printStyle.id = "md-print-config";
-    printStyle.textContent = `@page { size: ${PAPER_PRINT_NAMES[settings.paperSize]} ${settings.orientation}; margin: 0; }`;
+    printStyle.textContent = `@page { size: ${PAPER_PRINT_NAMES[settings.paperSize]} ${settings.orientation}; margin: ${MARGIN_VALUES[settings.margin].print}; }`;
     document.head.appendChild(printStyle);
 
     let restored = false;
@@ -610,6 +624,39 @@ export default function MarkdownWorkspace() {
                   </select>
                   <CaretDown size={15} aria-hidden="true" />
                 </div>
+                <p className="setting-help">
+                  Margin diterapkan ulang pada setiap halaman PDF.
+                </p>
+              </div>
+
+              <div className="setting-group">
+                <span className="setting-label">Ukuran teks</span>
+                <div
+                  className="segmented-control three-options"
+                  aria-label="Ukuran teks dokumen"
+                >
+                  {(
+                    [
+                      ["small", "Kecil"],
+                      ["medium", "Sedang"],
+                      ["large", "Besar"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      className="segment text-size-option"
+                      type="button"
+                      aria-pressed={settings.textSize === value}
+                      onClick={() => updateSetting("textSize", value)}
+                      key={value}
+                    >
+                      <span>{label}</span>
+                      <small>{TEXT_SIZE_VALUES[value].label}</small>
+                    </button>
+                  ))}
+                </div>
+                <p className="setting-help">
+                  Ukuran cetak: 10 pt, 11 pt, atau 13 pt.
+                </p>
               </div>
 
               <div className="setting-group">

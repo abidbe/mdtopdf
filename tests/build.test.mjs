@@ -26,3 +26,17 @@ test("keeps document processing local-first", async () => {
   assert.match(source, /accept="\.md,\.markdown,text\/markdown,text\/plain"/);
   assert.doesNotMatch(source, /\bfetch\s*\(/);
 });
+
+test("supports explicit text sizes and repeated print margins", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("../src/MarkdownWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /small: \{ label: "13 px"/);
+  assert.match(source, /medium: \{ label: "15 px"/);
+  assert.match(source, /large: \{ label: "17 px"/);
+  assert.match(source, /@page \{ size: .* margin: \$\{MARGIN_VALUES/);
+  assert.match(css, /font-size: var\(--print-font-size, 11pt\)/);
+  assert.match(css, /padding: 0 !important/);
+});
