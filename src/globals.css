@@ -309,16 +309,23 @@ textarea:focus-visible,
   background-size: 24px 24px;
 }
 
-.paper-shell {
-  width: min(100%, 760px);
+.pages-stack {
+  width: 100%;
   min-height: 100%;
-  margin: 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 42px;
+}
+
+.page-frame {
+  position: relative;
+  flex: none;
 }
 
 .document-page {
-  width: 100%;
-  min-height: var(--paper-min-height, 1080px);
-  padding: var(--paper-margin, 64px);
+  width: var(--paper-width, 210mm);
+  height: var(--paper-height, 297mm);
+  padding: var(--paper-margin, 18mm);
   color: #172a3e;
   background: #fffefa;
   border-radius: 3px;
@@ -326,7 +333,39 @@ textarea:focus-visible,
   font-family: var(--font-ui);
   font-size: var(--document-font-size, 15px);
   line-height: var(--document-line-height, 1.68);
+  overflow: hidden;
   overflow-wrap: anywhere;
+  transform: scale(var(--page-scale, 1));
+  transform-origin: top left;
+}
+
+.page-number {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.pagination-measure {
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  z-index: -1;
+  visibility: hidden;
+  overflow: visible;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.document-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .document-page[data-theme="dark"] {
@@ -334,11 +373,11 @@ textarea:focus-visible,
   background: #19273b;
 }
 
-.document-page > :first-child {
+.document-content > :first-child {
   margin-top: 0;
 }
 
-.document-page > :last-child {
+.document-content > :last-child {
   margin-bottom: 0;
 }
 
@@ -357,7 +396,7 @@ textarea:focus-visible,
 
 .document-page h1 {
   margin: 0 0 26px;
-  font-size: clamp(32px, 5vw, 48px);
+  font-size: 3em;
   font-weight: 430;
 }
 
@@ -365,7 +404,7 @@ textarea:focus-visible,
   margin: 40px 0 14px;
   padding-bottom: 9px;
   border-bottom: 1px solid #dfe6ef;
-  font-size: 25px;
+  font-size: 1.67em;
 }
 
 .document-page[data-theme="dark"] h2 {
@@ -374,7 +413,7 @@ textarea:focus-visible,
 
 .document-page h3 {
   margin: 30px 0 10px;
-  font-size: 19px;
+  font-size: 1.27em;
 }
 
 .document-page p,
@@ -826,11 +865,6 @@ textarea:focus-visible,
     padding: 14px;
   }
 
-  .document-page {
-    min-height: 760px;
-    padding: clamp(28px, 8vw, 48px);
-  }
-
   .settings-header {
     height: 64px;
   }
@@ -881,7 +915,7 @@ textarea:focus-visible,
   }
 
   .preview-wrap,
-  .paper-shell {
+  .pages-stack {
     display: block !important;
     width: 100% !important;
     min-height: 0 !important;
@@ -891,14 +925,30 @@ textarea:focus-visible,
     background: transparent !important;
   }
 
+  .page-frame {
+    width: auto !important;
+    height: auto !important;
+    break-after: page;
+  }
+
+  .page-frame:last-child {
+    break-after: auto;
+  }
+
+  .page-number,
+  .pagination-measure {
+    display: none !important;
+  }
+
   .document-page {
-    width: 100% !important;
-    min-height: 0 !important;
-    padding: 0 !important;
+    width: var(--paper-width) !important;
+    height: var(--paper-height) !important;
+    padding: var(--paper-margin) !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     font-size: var(--print-font-size, 11pt) !important;
+    transform: none !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

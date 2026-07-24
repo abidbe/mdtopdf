@@ -78,12 +78,13 @@ const DEFAULT_SETTINGS: Settings = {
 
 const STORAGE_KEY = "md-to-pdf:document:v1";
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const CSS_PIXELS_PER_MM = 96 / 25.4;
 
-const PAPER_RATIOS: Record<PaperSize, { portrait: number; landscape: number }> = {
-  A4: { portrait: 297 / 210, landscape: 210 / 297 },
-  A5: { portrait: 210 / 148, landscape: 148 / 210 },
-  Letter: { portrait: 11 / 8.5, landscape: 8.5 / 11 },
-  Legal: { portrait: 14 / 8.5, landscape: 8.5 / 14 },
+const PAPER_DIMENSIONS_MM: Record<PaperSize, { width: number; height: number }> = {
+  A4: { width: 210, height: 297 },
+  A5: { width: 148, height: 210 },
+  Letter: { width: 215.9, height: 279.4 },
+  Legal: { width: 215.9, height: 355.6 },
 };
 
 const PAPER_PRINT_NAMES: Record<PaperSize, string> = {
@@ -93,10 +94,10 @@ const PAPER_PRINT_NAMES: Record<PaperSize, string> = {
   Legal: "legal",
 };
 
-const MARGIN_VALUES: Record<MarginSize, { preview: string; print: string }> = {
-  small: { preview: "42px", print: "12mm" },
-  normal: { preview: "64px", print: "18mm" },
-  large: { preview: "86px", print: "25mm" },
+const MARGIN_VALUES: Record<MarginSize, { print: string }> = {
+  small: { print: "12mm" },
+  normal: { print: "18mm" },
+  large: { print: "25mm" },
 };
 
 const TEXT_SIZE_VALUES: Record<
@@ -183,8 +184,13 @@ export default function MarkdownWorkspace() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("editor");
   const [notice, setNotice] = useState<Notice | null>(initialDocument.notice);
+  const [pages, setPages] = useState<string[][]>([[]]);
+  const [previewScale, setPreviewScale] = useState(0.75);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewWrapRef = useRef<HTMLDivElement>(null);
+  const measurementRef = useRef<HTMLElement>(null);
+  const paginationSignatureRef = useRef("");
 
   useEffect(() => {
     const saveTimer = window.setTimeout(() => {
@@ -229,16 +235,143 @@ export default function MarkdownWorkspace() {
     return stripped ? stripped.split(/\s+/).length : 0;
   }, [source]);
 
-  const paperStyle = useMemo(() => {
-    const ratio = PAPER_RATIOS[settings.paperSize][settings.orientation];
+  const paperMetrics = useMemo(() => {
+    const selected = PAPER_DIMENSIONS_MM[settings.paperSize];
+    const widthMm =
+      settings.orientation === "portrait" ? selected.width : selected.height;
+    const heightMm =
+      settings.orientation === "portrait" ? selected.height : selected.width;
+
     return {
-      "--paper-margin": MARGIN_VALUES[settings.margin].preview,
-      "--paper-min-height": `${Math.round(720 * ratio)}px`,
-      "--document-font-size": TEXT_SIZE_VALUES[settings.textSize].preview,
+      widthMm,
+      heightMm,
+      widthPx: widthMm * CSS_PIXELS_PER_MM,
+      heightPx: heightMm * CSS_PIXELS_PER_MM,
+    };
+  }, [settings.orientation, settings.paperSize]);
+
+  const paperStyle = useMemo(() => {
+    return {
+      "--paper-width": `${paperMetrics.widthMm}mm`,
+      "--paper-height": `${paperMetrics.heightMm}mm`,
+      "--paper-margin": MARGIN_VALUES[settings.margin].print,
+      "--document-font-size": TEXT_SIZE_VALUES[settings.textSize].print,
       "--print-font-size": TEXT_SIZE_VALUES[settings.textSize].print,
       "--document-line-height": TEXT_SIZE_VALUES[settings.textSize].lineHeight,
     } as CSSProperties;
-  }, [settings]);
+  }, [paperMetrics, settings.margin, settings.textSize]);
+
+  const pageFrameStyle = useMemo(
+    () =>
+      ({
+        width: `${paperMetrics.widthPx * previewScale}px`,
+        height: `${paperMetrics.heightPx * previewScale}px`,
+      }) as CSSProperties,
+    [paperMetrics, previewScale],
+  );
+
+  useEffect(() => {
+    const preview = previewWrapRef.current;
+    if (!preview) return;
+
+    let animationFrame = 0;
+    const updateScale = () => {
+      const styles = window.getComputedStyle(preview);
+      const horizontalPadding =
+        Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
+      const availableWidth = Math.max(240, preview.clientWidth - horizontalPadding);
+      setPreviewScale(Math.min(1, availableWidth / paperMetrics.widthPx));
+    };
+
+    const scheduleScale = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updateScale);
+    };
+
+    const observer = new ResizeObserver(scheduleScale);
+    observer.observe(preview);
+    scheduleScale();
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [paperMetrics.widthPx]);
+
+  useEffect(() => {
+    const measurement = measurementRef.current;
+    const content = measurement?.querySelector<HTMLElement>(".document-content");
+    if (!measurement || !content) return;
+
+    let animationFrame = 0;
+    const paginate = () => {
+      const measurementStyles = window.getComputedStyle(measurement);
+      const availableHeight =
+        measurement.clientHeight -
+        Number.parseFloat(measurementStyles.paddingTop) -
+        Number.parseFloat(measurementStyles.paddingBottom);
+      const nextPages: string[][] = [[]];
+      let usedHeight = 0;
+      const children = Array.from(content.children) as HTMLElement[];
+      const getElementHeight = (element: HTMLElement) => {
+        const elementStyles = window.getComputedStyle(element);
+        return (
+          element.getBoundingClientRect().height +
+          Number.parseFloat(elementStyles.marginTop) +
+          Number.parseFloat(elementStyles.marginBottom)
+        );
+      };
+
+      for (const [index, element] of children.entries()) {
+        const elementHeight = getElementHeight(element);
+        const isHeading = /^H[1-6]$/.test(element.tagName);
+        const nextElementHeight =
+          isHeading && children[index + 1] ? getElementHeight(children[index + 1]) : 0;
+        const requiredHeight = elementHeight + nextElementHeight;
+
+        if (
+          nextPages[nextPages.length - 1].length > 0 &&
+          usedHeight + requiredHeight > availableHeight
+        ) {
+          nextPages.push([]);
+          usedHeight = 0;
+        }
+
+        nextPages[nextPages.length - 1].push(element.outerHTML);
+        usedHeight += elementHeight;
+      }
+
+      const normalizedPages =
+        nextPages.length === 1 && nextPages[0].length === 0 ? [[]] : nextPages;
+      const signature = normalizedPages.map((page) => page.join("")).join("\n\f\n");
+
+      if (signature !== paginationSignatureRef.current) {
+        paginationSignatureRef.current = signature;
+        setPages(normalizedPages);
+      }
+    };
+
+    const schedulePagination = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(paginate);
+    };
+
+    const observer = new ResizeObserver(schedulePagination);
+    observer.observe(content);
+    schedulePagination();
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [
+    source,
+    settings.margin,
+    settings.orientation,
+    settings.paperSize,
+    settings.textSize,
+    settings.theme,
+  ]);
 
   const onSourceChange = (value: string) => {
     setSource(value);
@@ -330,7 +463,7 @@ export default function MarkdownWorkspace() {
     document.getElementById("md-print-config")?.remove();
     const printStyle = document.createElement("style");
     printStyle.id = "md-print-config";
-    printStyle.textContent = `@page { size: ${PAPER_PRINT_NAMES[settings.paperSize]} ${settings.orientation}; margin: ${MARGIN_VALUES[settings.margin].print}; }`;
+    printStyle.textContent = `@page { size: ${PAPER_PRINT_NAMES[settings.paperSize]} ${settings.orientation}; margin: 0; }`;
     document.head.appendChild(printStyle);
 
     let restored = false;
@@ -482,7 +615,8 @@ export default function MarkdownWorkspace() {
               </h2>
               <span className="panel-meta">
                 {settings.paperSize},{" "}
-                {settings.orientation === "portrait" ? "Potret" : "Lanskap"}
+                {settings.orientation === "portrait" ? "Potret" : "Lanskap"},{" "}
+                {pages.length} halaman
               </span>
             </div>
             <div className="panel-actions">
@@ -498,43 +632,77 @@ export default function MarkdownWorkspace() {
             </div>
           </header>
 
-          <div className="preview-wrap">
-            <div className="paper-shell">
-              <article
-                className="document-page"
-                data-theme={settings.theme}
-                style={paperStyle}
-              >
-                {source.trim() ? (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: ({ children, ...props }) => (
-                        <a {...props} target="_blank" rel="noopener noreferrer">
-                          {children}
-                        </a>
-                      ),
-                      img: ({ alt, ...props }) => (
-                        <img {...props} alt={alt || "Gambar dokumen"} loading="lazy" />
-                      ),
-                    }}
+          <div className="preview-wrap" ref={previewWrapRef}>
+            <div
+              className="pages-stack"
+              aria-label={`Preview ${pages.length} halaman`}
+            >
+              {pages.map((page, index) => (
+                <div className="page-frame" style={pageFrameStyle} key={index}>
+                  <article
+                    className="document-page"
+                    data-theme={settings.theme}
+                    style={
+                      {
+                        ...paperStyle,
+                        "--page-scale": previewScale,
+                      } as CSSProperties
+                    }
+                    aria-label={`Halaman ${index + 1} dari ${pages.length}`}
                   >
-                    {source}
-                  </ReactMarkdown>
-                ) : (
-                  <div className="empty-preview">
-                    <div className="empty-preview-inner">
-                      <FileText size={34} weight="duotone" aria-hidden="true" />
-                      <h2>Dokumen masih kosong</h2>
-                      <p>Tulis Markdown di editor atau unggah file untuk melihat hasilnya.</p>
-                    </div>
-                  </div>
-                )}
-              </article>
+                    {source.trim() ? (
+                      <div
+                        className="document-content"
+                        dangerouslySetInnerHTML={{ __html: page.join("") }}
+                      />
+                    ) : (
+                      <div className="empty-preview">
+                        <div className="empty-preview-inner">
+                          <FileText size={34} weight="duotone" aria-hidden="true" />
+                          <h2>Dokumen masih kosong</h2>
+                          <p>
+                            Tulis Markdown di editor atau unggah file untuk melihat
+                            hasilnya.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                  <span className="page-number" aria-hidden="true">
+                    Halaman {index + 1} / {pages.length}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </section>
       </section>
+
+      <article
+        className="document-page pagination-measure"
+        data-theme={settings.theme}
+        style={paperStyle}
+        ref={measurementRef}
+        aria-hidden="true"
+      >
+        <div className="document-content">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ children, ...props }) => (
+                <a {...props} target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+              img: ({ alt, ...props }) => (
+                <img {...props} alt={alt || "Gambar dokumen"} loading="eager" />
+              ),
+            }}
+          >
+            {source}
+          </ReactMarkdown>
+        </div>
+      </article>
 
       {settingsOpen && (
         <>

@@ -27,7 +27,7 @@ test("keeps document processing local-first", async () => {
   assert.doesNotMatch(source, /\bfetch\s*\(/);
 });
 
-test("supports explicit text sizes and repeated print margins", async () => {
+test("paginates preview with the same physical pages used for printing", async () => {
   const [source, css] = await Promise.all([
     readFile(new URL("../src/MarkdownWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/globals.css", import.meta.url), "utf8"),
@@ -36,7 +36,14 @@ test("supports explicit text sizes and repeated print margins", async () => {
   assert.match(source, /small: \{ label: "13 px"/);
   assert.match(source, /medium: \{ label: "15 px"/);
   assert.match(source, /large: \{ label: "17 px"/);
-  assert.match(source, /@page \{ size: .* margin: \$\{MARGIN_VALUES/);
+  assert.match(source, /PAPER_DIMENSIONS_MM/);
+  assert.match(source, /new ResizeObserver\(schedulePagination\)/);
+  assert.match(source, /dangerouslySetInnerHTML/);
+  assert.match(source, /@page \{ size: .* margin: 0; \}/);
+  assert.match(source, /\{pages\.length\} halaman/);
+  assert.match(css, /width: var\(--paper-width, 210mm\)/);
+  assert.match(css, /height: var\(--paper-height, 297mm\)/);
   assert.match(css, /font-size: var\(--print-font-size, 11pt\)/);
-  assert.match(css, /padding: 0 !important/);
+  assert.match(css, /padding: var\(--paper-margin\) !important/);
+  assert.match(css, /break-after: page/);
 });
