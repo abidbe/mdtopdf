@@ -321,24 +321,101 @@ export default function MarkdownWorkspace() {
           Number.parseFloat(elementStyles.marginBottom)
         );
       };
+      const addToCurrentPage = (html: string, height: number) => {
+        nextPages[nextPages.length - 1].push(html);
+        usedHeight += height;
+      };
+      const startNewPage = () => {
+        nextPages.push([]);
+        usedHeight = 0;
+      };
+      const measureListChunk = (
+        list: HTMLElement,
+        items: HTMLElement[],
+        firstItemIndex: number,
+      ) => {
+        const chunk = list.cloneNode(false) as HTMLElement;
+
+        if (list.tagName === "OL" && firstItemIndex > 0) {
+          const parsedStart = Number.parseInt(list.getAttribute("start") || "1", 10);
+          const listStart = Number.isFinite(parsedStart) ? parsedStart : 1;
+          chunk.setAttribute("start", String(listStart + firstItemIndex));
+        }
+
+        items.forEach((item) => chunk.appendChild(item.cloneNode(true)));
+        content.appendChild(chunk);
+        const height = getElementHeight(chunk);
+        chunk.remove();
+
+        return { html: chunk.outerHTML, height };
+      };
+      const addPaginatedList = (list: HTMLElement) => {
+        const items = Array.from(list.children).filter(
+          (child): child is HTMLElement =>
+            child instanceof HTMLElement && child.tagName === "LI",
+        );
+
+        if (items.length === 0) {
+          addToCurrentPage(list.outerHTML, getElementHeight(list));
+          return;
+        }
+
+        let chunkItems: HTMLElement[] = [];
+        let chunkStartIndex = 0;
+        let chunkMeasurement: { html: string; height: number } | null = null;
+
+        for (const [itemIndex, item] of items.entries()) {
+          const candidateItems = [...chunkItems, item];
+          const candidate = measureListChunk(list, candidateItems, chunkStartIndex);
+          const pageHasContent = nextPages[nextPages.length - 1].length > 0;
+
+          if (usedHeight + candidate.height > availableHeight) {
+            if (chunkItems.length > 0 && chunkMeasurement) {
+              addToCurrentPage(chunkMeasurement.html, chunkMeasurement.height);
+              startNewPage();
+            } else if (pageHasContent) {
+              startNewPage();
+            } else {
+              chunkItems = candidateItems;
+              chunkMeasurement = candidate;
+              continue;
+            }
+
+            chunkItems = [item];
+            chunkStartIndex = itemIndex;
+            chunkMeasurement = measureListChunk(list, chunkItems, chunkStartIndex);
+          } else {
+            chunkItems = candidateItems;
+            chunkMeasurement = candidate;
+          }
+        }
+
+        if (chunkItems.length > 0 && chunkMeasurement) {
+          addToCurrentPage(chunkMeasurement.html, chunkMeasurement.height);
+        }
+      };
 
       for (const [index, element] of children.entries()) {
         const elementHeight = getElementHeight(element);
         const isHeading = /^H[1-6]$/.test(element.tagName);
+        const isList = element.tagName === "UL" || element.tagName === "OL";
         const nextElementHeight =
           isHeading && children[index + 1] ? getElementHeight(children[index + 1]) : 0;
         const requiredHeight = elementHeight + nextElementHeight;
+
+        if (isList && usedHeight + elementHeight > availableHeight) {
+          addPaginatedList(element);
+          continue;
+        }
 
         if (
           nextPages[nextPages.length - 1].length > 0 &&
           usedHeight + requiredHeight > availableHeight
         ) {
-          nextPages.push([]);
-          usedHeight = 0;
+          startNewPage();
         }
 
-        nextPages[nextPages.length - 1].push(element.outerHTML);
-        usedHeight += elementHeight;
+        addToCurrentPage(element.outerHTML, elementHeight);
       }
 
       const normalizedPages =

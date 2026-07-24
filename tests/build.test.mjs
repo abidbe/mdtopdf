@@ -39,6 +39,9 @@ test("paginates preview with the same physical pages used for printing", async (
   assert.match(source, /PAPER_DIMENSIONS_MM/);
   assert.match(source, /new ResizeObserver\(schedulePagination\)/);
   assert.match(source, /dangerouslySetInnerHTML/);
+  assert.match(source, /const addPaginatedList/);
+  assert.match(source, /element\.tagName === "UL" \|\| element\.tagName === "OL"/);
+  assert.match(source, /chunk\.setAttribute\("start"/);
   assert.match(source, /@page \{ size: .* margin: 0; \}/);
   assert.match(source, /\{pages\.length\} halaman/);
   assert.match(css, /width: var\(--paper-width, 210mm\)/);
