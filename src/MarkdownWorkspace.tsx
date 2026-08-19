@@ -24,6 +24,7 @@ type MarginSize = "small" | "normal" | "large";
 type TextSize = "small" | "medium" | "large";
 type DocumentTheme = "light" | "dark";
 type MobileTab = "editor" | "preview";
+type DocumentMode = "normal" | "compact";
 
 type Settings = {
   paperSize: PaperSize;
@@ -31,6 +32,7 @@ type Settings = {
   margin: MarginSize;
   textSize: TextSize;
   theme: DocumentTheme;
+  mode: DocumentMode;
 };
 
 type Notice = {
@@ -74,6 +76,7 @@ const DEFAULT_SETTINGS: Settings = {
   margin: "normal",
   textSize: "medium",
   theme: "light",
+  mode: "normal",
 };
 
 const STORAGE_KEY = "md-to-pdf:document:v1";
@@ -251,15 +254,17 @@ export default function MarkdownWorkspace() {
   }, [settings.orientation, settings.paperSize]);
 
   const paperStyle = useMemo(() => {
+    const lineHeight =
+      settings.mode === "compact" ? 1.3 : TEXT_SIZE_VALUES[settings.textSize].lineHeight;
     return {
       "--paper-width": `${paperMetrics.widthMm}mm`,
       "--paper-height": `${paperMetrics.heightMm}mm`,
       "--paper-margin": MARGIN_VALUES[settings.margin].print,
       "--document-font-size": TEXT_SIZE_VALUES[settings.textSize].print,
       "--print-font-size": TEXT_SIZE_VALUES[settings.textSize].print,
-      "--document-line-height": TEXT_SIZE_VALUES[settings.textSize].lineHeight,
+      "--document-line-height": lineHeight,
     } as CSSProperties;
-  }, [paperMetrics, settings.margin, settings.textSize]);
+  }, [paperMetrics, settings.margin, settings.mode, settings.textSize]);
 
   const pageFrameStyle = useMemo(
     () =>
@@ -444,6 +449,7 @@ export default function MarkdownWorkspace() {
   }, [
     source,
     settings.margin,
+    settings.mode,
     settings.orientation,
     settings.paperSize,
     settings.textSize,
@@ -719,6 +725,7 @@ export default function MarkdownWorkspace() {
                   <article
                     className="document-page"
                     data-theme={settings.theme}
+                    data-density={settings.mode}
                     style={
                       {
                         ...paperStyle,
@@ -758,6 +765,7 @@ export default function MarkdownWorkspace() {
       <article
         className="document-page pagination-measure"
         data-theme={settings.theme}
+        data-density={settings.mode}
         style={paperStyle}
         ref={measurementRef}
         aria-hidden="true"
@@ -808,6 +816,31 @@ export default function MarkdownWorkspace() {
             </header>
 
             <div className="settings-content">
+              <div className="setting-group">
+                <span className="setting-label">Mode dokumen</span>
+                <div className="segmented-control" aria-label="Mode dokumen">
+                  <button
+                    className="segment"
+                    type="button"
+                    aria-pressed={settings.mode === "normal"}
+                    onClick={() => updateSetting("mode", "normal")}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    className="segment"
+                    type="button"
+                    aria-pressed={settings.mode === "compact"}
+                    onClick={() => updateSetting("mode", "compact")}
+                  >
+                    Kompak (CV)
+                  </button>
+                </div>
+                <p className="setting-help">
+                  Mode kompak mengurangi jarak baris dan margin untuk dokumen padat seperti CV. Warna bullet menjadi hitam agar ramah ATS.
+                </p>
+              </div>
+
               <div className="setting-group">
                 <label className="setting-label" htmlFor="paper-size">
                   Ukuran kertas

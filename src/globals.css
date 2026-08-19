@@ -558,6 +558,52 @@ textarea:focus-visible,
   background: #dfe6ef;
 }
 
+/* Compact / CV density */
+
+.document-page[data-density="compact"] h1 {
+  margin: 0 0 0.3em;
+  font-size: 2.4em;
+}
+
+.document-page[data-density="compact"] h2 {
+  margin: 0.45em 0 0.2em;
+  font-size: 1.45em;
+}
+
+.document-page[data-density="compact"] h3 {
+  margin: 0.4em 0 0.15em;
+  font-size: 1.15em;
+}
+
+.document-page[data-density="compact"] p,
+.document-page[data-density="compact"] ul,
+.document-page[data-density="compact"] ol,
+.document-page[data-density="compact"] blockquote,
+.document-page[data-density="compact"] pre,
+.document-page[data-density="compact"] table {
+  margin: 0 0 0.3em;
+}
+
+.document-page[data-density="compact"] li {
+  margin: 1px 0;
+}
+
+.document-page[data-density="compact"] li::marker {
+  color: inherit;
+}
+
+.document-page[data-density="compact"] blockquote {
+  padding: 8px 14px;
+}
+
+.document-page[data-density="compact"] pre {
+  padding: 10px 14px;
+}
+
+.document-page[data-density="compact"] hr {
+  margin: 16px 0;
+}
+
 .empty-preview {
   min-height: 440px;
   display: grid;
